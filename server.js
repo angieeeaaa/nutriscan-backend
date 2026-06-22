@@ -90,3 +90,16 @@ const PORT = 5001;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+app.get('/api/user/profile', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Not logged in' });
+  try {
+    const { userId } = jwt.verify(token, SECRET);
+    const profile = db.prepare('SELECT preferences FROM profiles WHERE user_id = ?').get(userId);
+    const preferences = profile ? JSON.parse(profile.preferences) : [];
+    res.json({ preferences });
+  } catch (err) {
+    res.status(401).json({ error: 'Invalid token' });
+  }
+});
