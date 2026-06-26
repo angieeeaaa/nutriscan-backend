@@ -88,7 +88,6 @@ app.get('/', (req, res) => {
   res.json({ message: 'NutriScan backend is running!' });
 });
 
-// Feature 4: analyse a scanned/searched product against the user's profile
 app.post('/api/analyse', (req, res) => {
   const { product } = req.body;
   const token = req.headers.authorization?.split(' ')[1];
@@ -97,16 +96,15 @@ app.post('/api/analyse', (req, res) => {
   try {
     const { userId } = jwt.verify(token, SECRET);
     const profileRow = db.prepare('SELECT preferences FROM profiles WHERE user_id = ?').get(userId);
-    const userProfile = profileRow ? JSON.parse(profileRow.preferences) : { conditions: [], allergies: [] };
+    const preferences = profileRow ? JSON.parse(profileRow.preferences) : [];
 
-    const result = analyseSuitability(product, userProfile);
+    const result = analyseSuitability(product, preferences);
     res.json(result);
   } catch (err) {
     res.status(401).json({ error: 'Invalid token' });
   }
 });
 
-// Feature 5: suggest alternatives if the product wasn't suitable
 app.post('/api/alternatives', async (req, res) => {
   const { product } = req.body;
   const token = req.headers.authorization?.split(' ')[1];
@@ -115,12 +113,11 @@ app.post('/api/alternatives', async (req, res) => {
   try {
     const { userId } = jwt.verify(token, SECRET);
     const profileRow = db.prepare('SELECT preferences FROM profiles WHERE user_id = ?').get(userId);
-    const userProfile = profileRow ? JSON.parse(profileRow.preferences) : { conditions: [], allergies: [] };
+    const preferences = profileRow ? JSON.parse(profileRow.preferences) : [];
 
-    const alternatives = await suggestAlternatives(product, userProfile);
+    const alternatives = await suggestAlternatives(product, preferences);
     res.json({ alternatives });
   } catch (err) {
-    console.error('ALTERNATIVES ERROR:', err);
     res.status(500).json({ error: 'Failed to fetch alternatives' });
   }
 });

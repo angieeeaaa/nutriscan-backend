@@ -1,40 +1,49 @@
-// backend/suitability.js
+// suitability.js
 
-// Each rule checks the product's nutriments object (per 100g) against a threshold
 const RULES = {
   diabetes: (n) => (n.sugars_100g ?? 0) <= 5,
-  hypertension: (n) => (n.sodium_100g ?? 0) <= 0.4, // sodium is in grams, not mg, in OFF data
+  hypertension: (n) => (n.sodium_100g ?? 0) <= 0.4,
   high_cholesterol: (n) => (n['saturated-fat_100g'] ?? 0) <= 5,
-  low_calorie: (n) => (n['energy-kcal_100g'] ?? 0) <= 200,
 };
 
-// allergens_tags looks like ["en:milk", "en:nuts"] when present
-function checkAllergies(product, userAllergies) {
+const ALLERGY_KEYWORDS = {
+  nuts: ['nuts', 'almond', 'hazelnut', 'walnut', 'cashew', 'pistachio'],
+  shellfish: ['shellfish', 'shrimp', 'crab', 'lobster'],
+  dairy: ['milk', 'dairy', 'lactose', 'cheese', 'butter', 'cream'],
+  eggs: ['egg'],
+  gluten_free: ['wheat', 'gluten', 'barley', 'rye'],
+};
+
+function checkAllergiesAndDiets(product, selectedTags) {
   const allergenTags = (product.allergens_tags || []).map(a => a.toLowerCase());
   const traceTags = (product.traces_tags || []).map(a => a.toLowerCase());
   const ingredientsText = (product.ingredients_text || '').toLowerCase();
 
-  return userAllergies.filter(allergy => {
-    const a = allergy.toLowerCase();
-    return (
-      allergenTags.some(tag => tag.includes(a)) ||
-      traceTags.some(tag => tag.includes(a)) ||
-      ingredientsText.includes(a)
+  const triggered = [];
+  for (const tag of selectedTags) {
+    const keywords = ALLERGY_KEYWORDS[tag];
+    if (!keywords) continue;
+
+    const isTriggered = keywords.some(keyword =>
+      allergenTags.some(a => a.includes(keyword)) ||
+      traceTags.some(t => t.includes(keyword)) ||
+      ingredientsText.includes(keyword)
     );
-  });
+    if (isTriggered) triggered.push(tag);
+  }
+  return triggered;
 }
 
-function analyseSuitability(product, userProfile) {
+function analyseSuitability(product, preferences) {
   const nutriments = product.nutriments || {};
-  const conditions = userProfile.conditions || [];
-  const allergies = userProfile.allergies || [];
+  const tags = preferences || [];
 
-  const failedRules = conditions.filter(condition => {
-    const rule = RULES[condition];
+  const failedRules = tags.filter(tag => {
+    const rule = RULES[tag];
     return rule && !rule(nutriments);
   });
 
-  const triggeredAllergens = checkAllergies(product, allergies);
+  const triggeredAllergens = checkAllergiesAndDiets(product, tags);
 
   return {
     product_name: product.product_name || 'Unknown product',
