@@ -3,6 +3,8 @@ const cors = require('cors');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const Database = require('better-sqlite3');
+const { analyseSuitability } = require('./suitability');
+const { suggestAlternatives } = require('./alternatives');
 
 const app = express();
 const db = new Database('nutriscan.db');
@@ -84,6 +86,43 @@ app.put('/api/user/profile', (req, res) => {
 
 app.get('/', (req, res) => {
   res.json({ message: 'NutriScan backend is running!' });
+});
+
+// Feature 4: analyse a scanned/searched product against the user's profile
+app.post('/api/analyse', (req, res) => {
+  const { product } = req.body;
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Not logged in' });
+
+  try {
+    const { userId } = jwt.verify(token, SECRET);
+    const profileRow = db.prepare('SELECT preferences FROM profiles WHERE user_id = ?').get(userId);
+    const userProfile = profileRow ? JSON.parse(profileRow.preferences) : { conditions: [], allergies: [] };
+
+    const result = analyseSuitability(product, userProfile);
+    res.json(result);
+  } catch (err) {
+    res.status(401).json({ error: 'Invalid token' });
+  }
+});
+
+// Feature 5: suggest alternatives if the product wasn't suitable
+app.post('/api/alternatives', async (req, res) => {
+  const { product } = req.body;
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Not logged in' });
+
+  try {
+    const { userId } = jwt.verify(token, SECRET);
+    const profileRow = db.prepare('SELECT preferences FROM profiles WHERE user_id = ?').get(userId);
+    const userProfile = profileRow ? JSON.parse(profileRow.preferences) : { conditions: [], allergies: [] };
+
+    const alternatives = await suggestAlternatives(product, userProfile);
+    res.json({ alternatives });
+  } catch (err) {
+    console.error('ALTERNATIVES ERROR:', err);
+    res.status(500).json({ error: 'Failed to fetch alternatives' });
+  }
 });
 
 const PORT = 5001;
