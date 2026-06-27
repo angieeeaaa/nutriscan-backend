@@ -3,6 +3,7 @@ const cors = require('cors');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const Database = require('better-sqlite3');
+const https = require('https');
 
 const app = express();
 const db = new Database('nutriscan.db');
@@ -11,7 +12,6 @@ const SECRET = 'nutriscan-secret-key';
 app.use(cors());
 app.use(express.json());
 
-// set up database tables
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -19,7 +19,6 @@ db.exec(`
     email TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL
   );
-
   CREATE TABLE IF NOT EXISTS profiles (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
@@ -28,7 +27,16 @@ db.exec(`
   );
 `);
 
-// sign up
+function httpsGet(url) {
+  return new Promise((resolve, reject) => {
+    https.get(url, { headers: { 'User-Agent': 'FoodLens/1.0 (NUS Orbital 2026)' } }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => resolve(JSON.parse(data)));
+    }).on('error', reject);
+  });
+}
+
 app.post('/api/auth/register', async (req, res) => {
   const { name, email, password } = req.body;
   if (!name || !email || !password) {
@@ -45,7 +53,6 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// log in
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
@@ -63,7 +70,6 @@ app.post('/api/auth/login', async (req, res) => {
   res.json({ token, name: user.name, email: user.email });
 });
 
-// save health profile
 app.put('/api/user/profile', (req, res) => {
   const { preferences } = req.body;
   const token = req.headers.authorization?.split(' ')[1];
@@ -82,15 +88,6 @@ app.put('/api/user/profile', (req, res) => {
   }
 });
 
-app.get('/', (req, res) => {
-  res.json({ message: 'NutriScan backend is running!' });
-});
-
-const PORT = 5001;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
-
 app.get('/api/user/profile', (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'Not logged in' });
@@ -102,4 +99,37 @@ app.get('/api/user/profile', (req, res) => {
   } catch (err) {
     res.status(401).json({ error: 'Invalid token' });
   }
+});
+
+app.get('/api/food/search', async (req, res) => {
+  const { query } = req.query;
+  try {
+    const data = await httpsGet(
+      `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=10`
+    );
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch products' });
+  }
+});
+
+app.get('/api/food/barcode/:barcode', async (req, res) => {
+  const { barcode } = req.params;
+  try {
+    const data = await httpsGet(
+      `https://world.openfoodfacts.org/api/v0/product/${barcode}.json`
+    );
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch product' });
+  }
+});
+
+app.get('/', (req, res) => {
+  res.json({ message: 'NutriScan backend is running!' });
+});
+
+const PORT = 5001;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
