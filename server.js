@@ -34,7 +34,13 @@ function httpsGet(url) {
     https.get(url, { headers: { 'User-Agent': 'FoodLens/1.0 (NUS Orbital 2026)' } }, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
-      res.on('end', () => resolve(JSON.parse(data)));
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(data));
+        } catch (e) {
+          reject(new Error('Invalid JSON response from API'));
+        }
+      });
     }).on('error', reject);
   });
 }
