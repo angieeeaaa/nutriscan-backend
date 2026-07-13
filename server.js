@@ -27,6 +27,16 @@ db.exec(`
     preferences TEXT,
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
+  CREATE TABLE IF NOT EXISTS scan_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    product_name TEXT,
+    brand TEXT,
+    verdict TEXT,
+    product_data TEXT,
+    scanned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
 `);
 
 function httpsGet(url) {
@@ -165,6 +175,37 @@ app.get('/api/food/barcode/:barcode', async (req, res) => {
 
 app.get('/', (req, res) => {
   res.json({ message: 'NutriScan backend is running!' });
+});
+
+// save scan to history
+app.post('/api/user/history', (req, res) => {
+  const { product_name, brand, verdict, product_data } = req.body;
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Not logged in' });
+  try {
+    const { userId } = jwt.verify(token, SECRET);
+    db.prepare(
+      'INSERT INTO scan_history (user_id, product_name, brand, verdict, product_data) VALUES (?, ?, ?, ?, ?)'
+    ).run(userId, product_name, brand, verdict, JSON.stringify(product_data));
+    res.json({ success: true });
+  } catch (err) {
+    res.status(401).json({ error: 'Invalid token' });
+  }
+});
+
+// get scan history
+app.get('/api/user/history', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Not logged in' });
+  try {
+    const { userId } = jwt.verify(token, SECRET);
+    const history = db.prepare(
+      'SELECT * FROM scan_history WHERE user_id = ? ORDER BY scanned_at DESC LIMIT 20'
+    ).all(userId);
+    res.json({ history: history.map(h => ({ ...h, product_data: JSON.parse(h.product_data) })) });
+  } catch (err) {
+    res.status(401).json({ error: 'Invalid token' });
+  }
 });
 
 const PORT = 5001;
