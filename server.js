@@ -21,12 +21,14 @@ db.exec(`
     email TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL
   );
+  
   CREATE TABLE IF NOT EXISTS profiles (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     preferences TEXT,
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
+  
   CREATE TABLE IF NOT EXISTS scan_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
@@ -35,6 +37,17 @@ db.exec(`
     verdict TEXT,
     product_data TEXT,
     scanned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS favourites (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    product_name TEXT,
+    brand TEXT,
+    verdict TEXT,
+    product_data TEXT,
+    saved_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
 `);
@@ -203,6 +216,50 @@ app.get('/api/user/history', (req, res) => {
       'SELECT * FROM scan_history WHERE user_id = ? ORDER BY scanned_at DESC LIMIT 20'
     ).all(userId);
     res.json({ history: history.map(h => ({ ...h, product_data: JSON.parse(h.product_data) })) });
+  } catch (err) {
+    res.status(401).json({ error: 'Invalid token' });
+  }
+});
+
+// add to favourites
+app.post('/api/user/favourites', (req, res) => {
+  const { product_name, brand, verdict, product_data } = req.body;
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Not logged in' });
+  try {
+    const { userId } = jwt.verify(token, SECRET);
+    const existing = db.prepare('SELECT * FROM favourites WHERE user_id = ? AND product_name = ?').get(userId, product_name);
+    if (existing) {
+      return res.json({ success: true, message: 'Already saved' });
+    }
+    db.prepare('INSERT INTO favourites (user_id, product_name, brand, verdict, product_data) VALUES (?, ?, ?, ?, ?)').run(userId, product_name, brand, verdict, JSON.stringify(product_data));
+    res.json({ success: true });
+  } catch (err) {
+    res.status(401).json({ error: 'Invalid token' });
+  }
+});
+
+// remove from favourites
+app.delete('/api/user/favourites/:productName', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Not logged in' });
+  try {
+    const { userId } = jwt.verify(token, SECRET);
+    db.prepare('DELETE FROM favourites WHERE user_id = ? AND product_name = ?').run(userId, decodeURIComponent(req.params.productName));
+    res.json({ success: true });
+  } catch (err) {
+    res.status(401).json({ error: 'Invalid token' });
+  }
+});
+
+// get favourites
+app.get('/api/user/favourites', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Not logged in' });
+  try {
+    const { userId } = jwt.verify(token, SECRET);
+    const favs = db.prepare('SELECT * FROM favourites WHERE user_id = ? ORDER BY saved_at DESC').all(userId);
+    res.json({ favourites: favs.map(f => ({ ...f, product_data: JSON.parse(f.product_data) })) });
   } catch (err) {
     res.status(401).json({ error: 'Invalid token' });
   }
