@@ -7,7 +7,7 @@ const RULES = {
   kidney_disease: (n) => (n.potassium_100g ?? 0) <= 200 && (n.phosphorus_100g ?? 0) <= 100,
 };
 
-const ALLERGY_KEYWORDS = {
+const DIET_AND_ALLERGY_KEYWORDS = {
   nuts: ['nuts', 'almond', 'hazelnut', 'walnut', 'cashew', 'pistachio'],
   shellfish: ['shellfish', 'shrimp', 'crab', 'lobster'],
   dairy: ['milk', 'dairy', 'lactose', 'cheese', 'butter', 'cream'],
@@ -31,7 +31,7 @@ function checkAllergiesAndDiets(product, selectedTags) {
 
   const triggered = [];
   for (const tag of selectedTags) {
-    const keywords = ALLERGY_KEYWORDS[tag];
+    const keywords = DIET_AND_ALLERGY_KEYWORDS[tag];
     if (!keywords) continue;
 
     const isTriggered = keywords.some(keyword =>
