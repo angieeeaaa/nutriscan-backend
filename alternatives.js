@@ -30,7 +30,9 @@ async function suggestAlternatives(product, preferences, limit = 3) {
     const candidates = await fetchSameCategoryProducts(categoryTag, product.code, 20);
 
     if (candidates.length === 0) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (categoryTag !== categoriesToTry[categoriesToTry.length - 1]) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
       continue;
     }
 
@@ -45,7 +47,9 @@ async function suggestAlternatives(product, preferences, limit = 3) {
 
     if (suitable.length > 0) return suitable;
 
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    if (categoryTag !== categoriesToTry[categoriesToTry.length - 1]) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
   }
 
   return [];
