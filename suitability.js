@@ -2,7 +2,7 @@
 
 const RULES = {
   diabetes: (n) => (n.sugars_100g ?? 0) <= 5,
-  hypertension: (n) => (n.sodium_100g ?? 0) <= 0.4,
+  hypertension: (n) => (n.sodium_100g ?? 0) <= 0.6,
   high_cholesterol: (n) => (n['saturated-fat_100g'] ?? 0) <= 5,
   kidney_disease: (n) => (n.potassium_100g ?? 0) <= 200 && (n.phosphorus_100g ?? 0) <= 100,
 };
@@ -34,11 +34,16 @@ function checkAllergiesAndDiets(product, selectedTags) {
     const keywords = DIET_AND_ALLERGY_KEYWORDS[tag];
     if (!keywords) continue;
 
-    const isTriggered = keywords.some(keyword =>
-      allergenTags.some(a => containsWord(a, keyword)) ||
-      traceTags.some(t => containsWord(t, keyword)) ||
-      containsWord(ingredientsText, keyword)
-    );
+    const isTriggered = keywords.some(keyword => {
+      if (tag === 'dairy' && keyword === 'butter' && /peanut\s+butter/i.test(ingredientsText)) {
+        return false;
+      }
+      return (
+        allergenTags.some(a => containsWord(a, keyword)) ||
+        traceTags.some(t => containsWord(t, keyword)) ||
+        containsWord(ingredientsText, keyword)
+      );
+    });
     if (isTriggered) triggered.push(tag);
   }
   return triggered;
