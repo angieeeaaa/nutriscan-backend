@@ -4,6 +4,7 @@ const RULES = {
   diabetes: (n) => (n.sugars_100g ?? 0) <= 5,
   hypertension: (n) => (n.sodium_100g ?? 0) <= 0.4,
   high_cholesterol: (n) => (n['saturated-fat_100g'] ?? 0) <= 5,
+  kidney_disease: (n) => (n.potassium_100g ?? 0) <= 200 && (n.phosphorus_100g ?? 0) <= 100,
 };
 
 const ALLERGY_KEYWORDS = {
@@ -12,6 +13,9 @@ const ALLERGY_KEYWORDS = {
   dairy: ['milk', 'dairy', 'lactose', 'cheese', 'butter', 'cream'],
   eggs: ['egg'],
   gluten_free: ['wheat', 'gluten', 'barley', 'rye'],
+  vegetarian: ['beef', 'pork', 'chicken', 'meat', 'fish', 'seafood', 'gelatin'],
+  vegan: ['milk', 'egg', 'honey', 'beef', 'pork', 'chicken', 'meat', 'fish', 'seafood', 'gelatin', 'dairy', 'whey', 'casein'],
+  halal: ['pork', 'lard', 'gelatin', 'alcohol', 'wine', 'beer'],
 };
 
 function containsWord(text, keyword) {
