@@ -24,19 +24,31 @@ async function suggestAlternatives(product, preferences, limit = 3) {
   const categories = product.categories_tags || [];
   if (categories.length === 0) return [];
 
-  const categoryTag = categories[categories.length - 1];
-  const candidates = await fetchSameCategoryProducts(categoryTag, product.code, 20);
+  const categoriesToTry = categories.slice(-3).reverse();
 
-  const suitable = [];
-  for (const candidate of candidates) {
-    const result = analyseSuitability(candidate, preferences);
-    if (result.is_suitable) {
-      suitable.push({ code: candidate.code, name: result.product_name });
-      if (suitable.length >= limit) break;
+  for (const categoryTag of categoriesToTry) {
+    const candidates = await fetchSameCategoryProducts(categoryTag, product.code, 20);
+
+    if (candidates.length === 0) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      continue;
     }
+
+    const suitable = [];
+    for (const candidate of candidates) {
+      const result = analyseSuitability(candidate, preferences);
+      if (result.is_suitable) {
+        suitable.push({ code: candidate.code, name: result.product_name });
+        if (suitable.length >= limit) break;
+      }
+    }
+
+    if (suitable.length > 0) return suitable;
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
   }
 
-  return suitable;
+  return [];
 }
 
 module.exports = { suggestAlternatives };
