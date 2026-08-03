@@ -14,6 +14,12 @@ const ALLERGY_KEYWORDS = {
   gluten_free: ['wheat', 'gluten', 'barley', 'rye'],
 };
 
+function containsWord(text, keyword) {
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(`\\b${escaped}\\b`, 'i');
+  return pattern.test(text);
+}
+
 function checkAllergiesAndDiets(product, selectedTags) {
   const allergenTags = (product.allergens_tags || []).map(a => a.toLowerCase());
   const traceTags = (product.traces_tags || []).map(a => a.toLowerCase());
@@ -25,9 +31,9 @@ function checkAllergiesAndDiets(product, selectedTags) {
     if (!keywords) continue;
 
     const isTriggered = keywords.some(keyword =>
-      allergenTags.some(a => a.includes(keyword)) ||
-      traceTags.some(t => t.includes(keyword)) ||
-      ingredientsText.includes(keyword)
+      allergenTags.some(a => containsWord(a, keyword)) ||
+      traceTags.some(t => containsWord(t, keyword)) ||
+      containsWord(ingredientsText, keyword)
     );
     if (isTriggered) triggered.push(tag);
   }
